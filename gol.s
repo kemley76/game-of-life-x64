@@ -213,7 +213,7 @@ sleep:
 
 section .data
 
-	sleepTime timespec 0, 10000000
+	sleepTime timespec 0, 50000000
 
 	aliveCell: db ALIVE
 	deadCell: db DEAD

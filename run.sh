@@ -1,3 +1,5 @@
 nasm -f elf64 -o gol.o gol.s
 ld -o gol gol.o
-./gol < gliderGun.txt
+if [ -n $1 ] ; then 
+	./gol < $1	
+fi
