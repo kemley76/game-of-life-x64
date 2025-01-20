@@ -10,7 +10,6 @@ _start:
 	mov r14, rsp ; r14 holds starting address to grid 2
 	sub rsp, SQUARE_SIZE ; make space for grid on stack
 
-
 	read_input:
 		mov rax, 0
 		mov rsi, r13
@@ -27,26 +26,18 @@ _start:
 	read_done:
 
 	mov rax, 0
-	mov rdi, 0 ; read from stdin
+	mov rdi, 0 ; read grid from stdin
 	mov rsi, r13
 	mov rdx, SQUARE_SIZE
 	syscall
 	
-	; print grid read
-	;mov rdx, rax 
-	;mov rax, 1; print
-	;mov rdi, 1; fd = stdout
-	;mov rsi, r13
-	;mov rdx, SQUARE_SIZE; count = 1
-	;syscall
-
-	mov rsi, nl; buf = '\n'
+	mov rsi, newline; buf = '\n'
 	call print
 
-	stop: 
-
 	mov r8, 0 ; loop counter
-	initialize: ; loop through every row
+	initialize: 
+	; loop through every cell and convert 
+	; 'X' to 1 and everything else to 0
 		cmp byte [r13 + r8], 'X'
 		jne off
 		mov byte [r13 + r8], 1	
@@ -101,16 +92,16 @@ printGrid: ; print grid starting starting at r13
 		cmp r14b, SIZE
 		jne no
 			mov r14b, 0
-			mov rsi, nl; buf = '\n'
+			mov rsi, newline; buf = '\n'
 			call print
 		no:
 		mov byte r15b, [r13+r8]
 		cmp r15b, 0
 		je X
-			mov rsi, oStr; buf = 'O'
+			mov rsi, aliveCell; buf = '#'
 			jmp done
 		X:
-			mov rsi, xStr; buf = 'X'
+			mov rsi, deadCell; buf = ' '
 		done:
 		call print
 		inc r14b
@@ -118,7 +109,7 @@ printGrid: ; print grid starting starting at r13
 		cmp r8, SQUARE_SIZE
 		jne printLoop
 
-	mov rsi, nl; buf = xStr
+	mov rsi, newline; buf = '\n'
 	call print
 
 	pop r14 
@@ -206,17 +197,11 @@ sleep:
 
 section .data
 
-	sleep_time timespec 0, 10000000
+	sleep_time timespec 0, 5000000
 
-	message: db 0xA; 0xA == \n
-	message_length equ $-message
-	
-	test_msg: db "Hello World!", 0xA
-	test_len equ $-test_msg
-
-	oStr: db "#"
-	xStr: db " "
-	nl: db 0x0A
+	aliveCell: db "#"
+	deadCell: db " "
+	newline: db 0x0A
 
 	cursor db 0x1B, '[', 'H' ; escape sequence to go to home position
 	len equ $-cursor
