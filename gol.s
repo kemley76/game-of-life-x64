@@ -53,6 +53,7 @@ _start:
 		cmp r8, SQUARE_SIZE + 1
 		jle initialize 
 
+	call clearScreen
 	loop: 
 		call printGrid
 		call printNL
@@ -64,6 +65,14 @@ _start:
 	mov rax, 60
 	xor rdi, rdi
 	syscall
+
+clearScreen: ; put string buffer into rsi
+	mov rsi, clear
+	mov rax, 1; print
+	mov rdi, 1; fd = stdout
+	mov rdx, clearLen
+	syscall
+	ret
 
 printNL: ; put string buffer into rsi
 	mov rsi, newline
@@ -212,3 +221,6 @@ section .data
 
 	cursor db 0x1B, '[', 'H' ; move cursor to top left corner
 	cursorLen equ $-cursor
+
+	clear db 0x1B, '[', '2', 'J' ; clears all characters in terminal window
+	clearLen equ $-cursor
