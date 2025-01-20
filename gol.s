@@ -1,5 +1,8 @@
 SIZE equ 75
 SQUARE_SIZE equ SIZE * SIZE
+ALIVE equ '#'
+DEAD equ ' '
+NL equ 0xA
 
 global _start 
 section .text
@@ -31,29 +34,28 @@ _start:
 	mov rdx, SQUARE_SIZE
 	syscall
 	
-	mov rsi, newline; buf = '\n'
-	call print
+	call printNL
 
 	mov r8, 0 ; loop counter
-	initialize: 
-	; loop through every cell and convert 
-	; 'X' to 1 and everything else to 0
-		cmp byte [r13 + r8], 'X'
-		jne off
-		mov byte [r13 + r8], 1	
-		jmp doneOff
-		off:
-		mov byte [r13 + r8], 0
-		doneOff:
-
-		cmp byte [r14 + r8], 0
-
+	mov r9, 0
+	initialize: ; set second grid to dead
+		mov r10b, byte [r13 + r8]
+		cmp r10b, NL
+		je addNL
+			mov byte [r14 + r8], DEAD
+			jmp doneInit
+		addNL:
+			mov byte [r14 + r8], NL
+			mov r9, 0
+		doneInit:
 		inc r8
-		cmp r8, SQUARE_SIZE
+		inc r9
+		cmp r8, SQUARE_SIZE + 1
 		jle initialize 
 
 	loop: 
 		call printGrid
+		call printNL
 		call stepGrid
 		call sleep
 		xchg r13, r14
@@ -63,59 +65,30 @@ _start:
 	xor rdi, rdi
 	syscall
 
-print: ; put string buffer into rsi
+printNL: ; put string buffer into rsi
+	mov rsi, newline
 	mov rax, 1; print
 	mov rdi, 1; fd = stdout
 	mov rdx, 1; count = 1
 	syscall
 	ret
 
-print2: 
+movCursor: 
 	mov rax, 1
 	mov rdi, 1
 	mov rsi, cursor
-	mov rdx, len
+	mov rdx, cursorLen
 
 	syscall
 	ret
 
 printGrid: ; print grid starting starting at r13
-	push rbp
-	mov rbp, rsp
-
-	push r14
-
-	call print2
-	mov r8, 0
-	mov r14b, 0
-	printLoop:
-		cmp r14b, SIZE
-		jne no
-			mov r14b, 0
-			mov rsi, newline; buf = '\n'
-			call print
-		no:
-		mov byte r15b, [r13+r8]
-		cmp r15b, 0
-		je X
-			mov rsi, aliveCell; buf = '#'
-			jmp done
-		X:
-			mov rsi, deadCell; buf = ' '
-		done:
-		call print
-		inc r14b
-		inc r8
-		cmp r8, SQUARE_SIZE
-		jne printLoop
-
-	mov rsi, newline; buf = '\n'
-	call print
-
-	pop r14 
-
-	mov rsp, rbp
-	pop rbp
+	call movCursor
+	mov rsi, r13
+	mov rax, 1; print
+	mov rdi, 1; fd = stdout
+	mov rdx, SQUARE_SIZE; 
+	syscall
 	ret
 
 stepGrid: ; counts grid in r13 and puts results into r14
@@ -133,8 +106,8 @@ stepGrid: ; counts grid in r13 and puts results into r14
 			mov r11b, byte [rdi] ; get the contents of the cell
 			mov byte [r10], r11b ; copy the state of the cell to the new grid
 
-			cmp r11b, 0
-			je dead
+			cmp r11b, ALIVE
+			jne dead
 			
 			; alive 
 			cmp al, 1
@@ -145,24 +118,24 @@ stepGrid: ; counts grid in r13 and puts results into r14
 
 			jmp countDone
 			kill:
-			mov byte [r10], 0
+			mov byte [r10], DEAD
 			jmp countDone
 
 			dead:
 				cmp al, 3
 				jne countDone
 
-				mov byte [r10], 1 ; make cell alive if 3 neighbors
+				mov byte [r10], ALIVE ; make cell alive if 3 neighbors
 			countDone:
 
 			inc rdi ; increment grid pointers
 			inc r10
 			inc r9 ; increment loop counters
-			cmp r9, SIZE - 1 ; loop test
+			cmp r9, SIZE - 1; loop test
 			jl col
 
 		add rdi, 2 ; increment grid pointers
-		add r10, 2
+		add r10, 2 
 		inc r8 ; increment loop counters
 		cmp r8, SIZE - 1 ; loop test
 		jl row
@@ -173,19 +146,53 @@ stepGrid: ; counts grid in r13 and puts results into r14
 
 countCell: ; r13 = &grid. Address of cell at rdi
 	mov rax, 0
-	add al, byte [rdi + 1] ; right
-	add al, byte [rdi - 1] ; left
-	add al, byte [rdi + SIZE] ; down
-	add al, byte [rdi - SIZE] ; up
-	add al, byte [rdi + SIZE + 1] ; down-right
-	add al, byte [rdi + SIZE - 1] ; down-left
-	add al, byte [rdi - SIZE - 1] ; up-left
-	add al, byte [rdi - SIZE + 1] ; up-right
+	mov bl, ALIVE
+
+	cmp bl, byte [rdi + 1] ; right
+	jne next1
+	inc rax
+	next1:
+
+	cmp bl, byte [rdi - 1] ; left
+	jne next2
+	inc rax
+	next2:
+
+	cmp bl, byte [rdi + SIZE] ; down
+	jne next3
+	inc rax
+	next3:
+
+	cmp bl, byte [rdi - SIZE] ; up
+	jne next4
+	inc rax
+	next4:
+
+	cmp bl, byte [rdi + SIZE + 1] ; down-right
+	jne next5
+	inc rax
+	next5:
+
+	cmp bl, byte [rdi + SIZE - 1] ; down-left
+	jne next6
+	inc rax
+	next6:
+
+	cmp bl, byte [rdi - SIZE - 1] ; up-left
+	jne next7
+	inc rax
+
+	next7:
+	cmp bl, byte [rdi - SIZE + 1] ; up-right
+	jne next8
+	inc rax
+
+	next8:
 	ret
 
 sleep: 
 	mov rax, 35
-	mov rdi, sleep_time
+	mov rdi, sleepTime
 	mov rsi, 0
 	syscall
 	ret
@@ -197,11 +204,11 @@ sleep:
 
 section .data
 
-	sleep_time timespec 0, 5000000
+	sleepTime timespec 0, 10000000
 
-	aliveCell: db "#"
-	deadCell: db " "
-	newline: db 0x0A
+	aliveCell: db ALIVE
+	deadCell: db DEAD
+	newline: db NL
 
-	cursor db 0x1B, '[', 'H' ; escape sequence to go to home position
-	len equ $-cursor
+	cursor db 0x1B, '[', 'H' ; move cursor to top left corner
+	cursorLen equ $-cursor
