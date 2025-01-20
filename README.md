@@ -3,7 +3,7 @@
 ![example](https://github.com/user-attachments/assets/714af2e5-b809-48d8-bc0d-fe96226d041f)
 
 ## Why?
-I made this as fun way to learn the basics of x64 assembly and syscalls 
+I made this as fun way to learn the basics of x64 assembly, `gdb`, and syscalls 
 
 ## How to run
 ```bash
@@ -11,6 +11,9 @@ sh run.sh <input file> # compiles and runs program
 ./gol < <input file>   # runs compuiled program
 ```
 Two input files are provided already: `gliderGun.txt` and `snark.txt` (shown running above).
+
+## Requirements 
+- [`nasm`](https://www.nasm.us/) must be installed to compile x64 assembly
 
 ## Details
 - Compiler: nasm x64 assembler
