@@ -1,43 +1,71 @@
-SIZE equ 31
+SIZE equ 51
+SQUARE_SIZE equ SIZE * SIZE
 
 global _start 
 section .text
 _start:
-	; calculate grid size into r12
-	mov rax, SIZE
-	mov r12, SIZE
-	mul r12
-	mov r12, rax ; r12 = number of bytes in the grid
-
 	mov r13, rsp ; r13 holds starting address to grid
-	sub rsp, r12 ; make space for grid on stack
+	sub rsp, SQUARE_SIZE ; make space for grid on stack
 
 	mov r14, rsp ; r14 holds starting address to grid 2
-	sub rsp, r12 ; make space for grid on stack
+	sub rsp, SQUARE_SIZE ; make space for grid on stack
+
+
+	read_input:
+		mov rax, 0
+		mov rsi, r13
+		mov rdx, SQUARE_SIZE
+		syscall
+
+		cmp rax, 0
+		jle read_done
+
+		sub rcx, rax
+		add rdi, rax
+		jmp read_input
+
+	read_done:
+
+	mov rax, 0
+	mov rdi, 0 ; read from stdin
+	mov rsi, r13
+	mov rdx, SQUARE_SIZE
+	syscall
+	
+	; print grid read
+	;mov rdx, rax 
+	;mov rax, 1; print
+	;mov rdi, 1; fd = stdout
+	;mov rsi, r13
+	;mov rdx, SQUARE_SIZE; count = 1
+	;syscall
+
+	mov rsi, nl; buf = '\n'
+	call print
+
+	stop: 
 
 	mov r8, 0 ; loop counter
-
 	initialize: ; loop through every row
-		mov byte [r13 + r8], 1
-		mov byte [r14 + r8], 0
-		inc r8
+		cmp byte [r13 + r8], 'X'
+		jne off
+		mov byte [r13 + r8], 1	
+		jmp doneOff
+		off:
 		mov byte [r13 + r8], 0
-		mov byte [r14 + r8], 1
-		;add rax, 2
+		doneOff:
+
+		cmp byte [r14 + r8], 0
+
 		inc r8
-		cmp r8, r12
+		cmp r8, SQUARE_SIZE
 		jle initialize 
 
 	loop: 
 		call printGrid
+		call stepGrid
+		call sleep
 		xchg r13, r14
-
-		mov rsi, nl; buf = '\n'
-		call print
-
-		call sleep
-		call printGrid
-		call sleep
 		jmp loop
 
 	mov rax, 60
@@ -46,14 +74,14 @@ _start:
 
 print: ; put string buffer into rsi
 	mov rax, 1; print
-	mov rdi, 0; fd = stdout
+	mov rdi, 1; fd = stdout
 	mov rdx, 1; count = 1
 	syscall
 	ret
 
 print2: 
 	mov rax, 1
-	mov rdi, 0
+	mov rdi, 1
 	mov rsi, cursor
 	mov rdx, len
 
@@ -77,7 +105,7 @@ printGrid: ; print grid starting starting at r13
 			call print
 		no:
 		mov byte r15b, [r13+r8]
-		cmp r15b, 1
+		cmp r15b, 0
 		je X
 			mov rsi, oStr; buf = 'O'
 			jmp done
@@ -87,7 +115,7 @@ printGrid: ; print grid starting starting at r13
 		call print
 		inc r14b
 		inc r8
-		cmp r8, r12
+		cmp r8, SQUARE_SIZE
 		jne printLoop
 
 	mov rsi, nl; buf = xStr
@@ -97,6 +125,70 @@ printGrid: ; print grid starting starting at r13
 
 	mov rsp, rbp
 	pop rbp
+	ret
+
+stepGrid: ; counts grid in r13 and puts results into r14
+	push rbp
+	mov rbp, rsp
+
+	lea rdi, [r13 + SIZE + 1]
+	lea r10, [r14 + SIZE + 1]
+	mov r8, 1
+	row: 
+		mov r9, 1
+		col:
+			call countCell
+
+			mov r11b, byte [rdi] ; get the contents of the cell
+			mov byte [r10], r11b ; copy the state of the cell to the new grid
+
+			cmp r11b, 0
+			je dead
+			
+			; alive 
+			cmp al, 1
+			jle kill ; death by isolation
+
+			cmp al, 4
+			jge kill ; death by overcrowding
+
+			kill:
+			mov byte [r10], 0
+			jmp countDone
+
+			dead:
+				cmp al, 3
+				jne countDone
+
+				mov byte [r10], 1 ; make cell alive if 3 neighbors
+			countDone:
+
+			inc rdi ; increment grid pointers
+			inc r10
+			inc r9 ; increment loop counters
+			cmp r9, SIZE - 1 ; loop test
+			jl col
+
+		add rdi, 2 ; increment grid pointers
+		add r10, 2
+		inc r8 ; increment loop counters
+		cmp r8, SIZE - 1 ; loop test
+		jl row
+	
+	mov rsp, rbp
+	pop rbp
+	ret
+
+countCell: ; r13 = &grid. Address of cell at rdi
+	mov rax, 0
+	add al, byte [rdi + 1] ; right
+	add al, byte [rdi - 1] ; left
+	add al, byte [rdi + SIZE] ; down
+	add al, byte [rdi - SIZE] ; up
+	add al, byte [rdi + SIZE + 1] ; down-right
+	add al, byte [rdi + SIZE - 1] ; down-left
+	add al, byte [rdi - SIZE - 1] ; up-left
+	add al, byte [rdi - SIZE + 1] ; up-right
 	ret
 
 sleep: 
@@ -117,9 +209,12 @@ section .data
 
 	message: db 0xA; 0xA == \n
 	message_length equ $-message
+	
+	test_msg: db "Hello World!", 0xA
+	test_len equ $-test_msg
 
-	oStr: db "O"
-	xStr: db "X"
+	oStr: db "#"
+	xStr: db " "
 	nl: db 0x0A
 
 	cursor db 0x1B, '[', 'H' ; escape sequence to go to home position
