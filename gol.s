@@ -1,4 +1,4 @@
-SIZE equ 51
+SIZE equ 75
 SQUARE_SIZE equ SIZE * SIZE
 
 global _start 
@@ -152,6 +152,7 @@ stepGrid: ; counts grid in r13 and puts results into r14
 			cmp al, 4
 			jge kill ; death by overcrowding
 
+			jmp countDone
 			kill:
 			mov byte [r10], 0
 			jmp countDone
@@ -205,7 +206,7 @@ sleep:
 
 section .data
 
-	sleep_time timespec 0, 500000000
+	sleep_time timespec 0, 10000000
 
 	message: db 0xA; 0xA == \n
 	message_length equ $-message
